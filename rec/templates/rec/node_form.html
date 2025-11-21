@@ -1,0 +1,724 @@
+{% extends 'rec/base.html' %}
+
+{% block title %}{% if mode == 'edit' %}Edit{% else %}Create{% endif %} Node{% endblock %}
+
+{% block extra_css %}
+<style>
+.node-form-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.form-section {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.section-icon {
+    font-size: 1.5rem;
+}
+
+.section-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.section-subtitle {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #2c3e50;
+    font-size: 0.95rem;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.3s;
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group small {
+    display: block;
+    margin-top: 0.5rem;
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.current-file {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    border: 1px solid #e0e0e0;
+}
+
+.current-file img {
+    display: block;
+    margin-bottom: 0.75rem;
+}
+
+.current-file p {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+}
+
+.current-file label {
+    font-weight: 500 !important;
+    color: #495057 !important;
+    cursor: pointer;
+}
+
+.info-text {
+    background: #e7f3ff;
+    color: #004085;
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+    margin: 0;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid #f0f0f0;
+    margin-top: 1rem;
+}
+
+.form-actions .btn-primary {
+    flex: 1;
+    max-width: 300px;
+    padding: 0.875rem 2rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.form-actions .btn-secondary {
+    padding: 0.875rem 2rem;
+}
+
+.required {
+    color: #dc3545;
+    font-weight: 700;
+}
+
+/* File input styling */
+input[type="file"] {
+    padding: 0.5rem;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    font-size: 0.95rem;
+}
+
+input[type="file"]:hover {
+    border-color: #667eea;
+    background: #f8f9ff;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .form-section {
+        padding: 1.25rem;
+        margin-bottom: 1.25rem;
+        border-radius: 8px;
+    }
+    
+    .section-header {
+        margin-bottom: 1rem;
+    }
+    
+    .section-title {
+        font-size: 1.1rem;
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .form-actions .btn-primary,
+    .form-actions .btn-secondary {
+        width: 100%;
+        max-width: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .form-section {
+        padding: 1rem;
+    }
+    
+    .section-icon {
+        font-size: 1.25rem;
+    }
+    
+    .section-title {
+        font-size: 1rem;
+    }
+    
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group select,
+    .form-group textarea {
+        font-size: 0.95rem;
+        padding: 0.65rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="node-form-wrapper">
+    <div class="page-header">
+        <h1>{% if mode == 'edit' %}✏️ Edit Node: {{ node.name }}{% else %}➕ Create New Node{% endif %}</h1>
+        <p>{% if mode == 'edit' %}Update the node information below{% else %}Add a new navigation point to the campus map{% endif %}</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% if mode == 'edit' %}
+            <input type="hidden" name="old_node_code" value="{{ node.node_code }}">
+        {% endif %}
+        
+        <!-- Basic Information Section -->
+        <div class="form-section">
+            <div class="section-header">
+                <span class="section-icon">📋</span>
+                <div>
+                    <h2 class="section-title">Basic Information</h2>
+                    <p class="section-subtitle">Essential details about this node</p>
+                </div>
+            </div>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="node_code">Node Code <span class="required">*</span></label>
+                    <input type="text" id="node_code" name="node_code" required 
+                           value="{% if mode == 'edit' %}{{ node.node_code }}{% endif %}"
+                           placeholder="e.g., BLDG-101-R01">
+                    <small>Unique identifier for this node</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="name">Name <span class="required">*</span></label>
+                    <input type="text" id="name" name="name" required 
+                           value="{% if mode == 'edit' %}{{ node.name }}{% endif %}"
+                           placeholder="e.g., Computer Lab 1">
+                </div>
+
+                <div class="form-group">
+                    <label for="building">Building <span class="required">*</span></label>
+                    <input type="text" id="building" name="building" required 
+                           value="{% if mode == 'edit' %}{{ node.building }}{% endif %}"
+                           placeholder="e.g., Engineering Building">
+                </div>
+
+                <div class="form-group">
+                    <label for="floor_level">Floor Level <span class="required">*</span></label>
+                    <input type="number" id="floor_level" name="floor_level" required 
+                           value="{% if mode == 'edit' %}{{ node.floor_level }}{% else %}1{% endif %}">
+                    <small>Use negative numbers for basement levels</small>
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="type_of_node">Node Type</label>
+                    <select id="type_of_node" name="type_of_node">
+                        <option value="room" {% if mode == 'edit' and node.type_of_node == 'room' %}selected{% endif %}>🚪 Room</option>
+                        <option value="hallway" {% if mode == 'edit' and node.type_of_node == 'hallway' %}selected{% endif %}>🚶 Hallway</option>
+                        <option value="entrance" {% if mode == 'edit' and node.type_of_node == 'entrance' %}selected{% endif %}>🚪 Entrance</option>
+                        <option value="staircase" {% if mode == 'edit' and node.type_of_node == 'staircase' %}selected{% endif %}>🪜 Staircase</option>
+                        <option value="elevator" {% if mode == 'edit' and node.type_of_node == 'elevator' %}selected{% endif %}>🛗 Elevator</option>
+                        <option value="landmark" {% if mode == 'edit' and node.type_of_node == 'landmark' %}selected{% endif %}>📍 Landmark</option>
+                    </select>
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="3" 
+                              placeholder="Additional information about this node...">{% if mode == 'edit' %}{{ node.description }}{% endif %}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Media Section -->
+        <div class="form-section">
+            <div class="section-header">
+                <span class="section-icon">🖼️</span>
+                <div>
+                    <h2 class="section-title">Media & QR Code</h2>
+                    <p class="section-subtitle">360° images and QR code for navigation</p>
+                </div>
+            </div>
+            
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label for="image360">360° Panorama Image</label>
+                    {% if mode == 'edit' and node.image360 %}
+                        <div class="current-file">
+                            <img src="{{ node.image360.url }}" alt="Current 360° image" style="max-width: 200px; border-radius: 8px;">
+                            <p><strong>Current:</strong> <a href="{{ node.image360.url }}" target="_blank">{{ node.image360.name }}</a></p>
+                        </div>
+                    {% endif %}
+                    <input type="file" id="image360" name="image360" accept="image/*">
+                    <small>Upload equirectangular 360° panorama image (JPG, PNG)</small>
+                </div>
+
+                <div class="form-group full-width">
+                    <label>QR Code</label>
+                    {% if mode == 'edit' and node.qrcode %}
+                        <div class="current-file">
+                            <img src="{{ node.qrcode.url }}" alt="QR Code" style="max-width: 150px; border: 1px solid #ddd; padding: 0.5rem; background: white; border-radius: 8px;">
+                            <p>Auto-generated QR code for this node</p>
+                            <label style="font-weight: normal; display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="checkbox" name="regenerate_qr" value="1">
+                                Regenerate QR code on save
+                            </label>
+                        </div>
+                    {% else %}
+                        <p class="info-text">💡 QR code will be automatically generated when you save this node.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Campus Map Position Section -->
+        <div class="form-section">
+            <div class="section-header">
+                <span class="section-icon">🗺️</span>
+                <div>
+                    <h2 class="section-title">Campus Map Position</h2>
+                    <p class="section-subtitle">Click on the map to set node location</p>
+                </div>
+            </div>
+            
+            <input type="hidden" id="map_x" name="map_x" value="{% if mode == 'edit' and node.map_x %}{{ node.map_x }}{% endif %}">
+            <input type="hidden" id="map_y" name="map_y" value="{% if mode == 'edit' and node.map_y %}{{ node.map_y }}{% endif %}">
+            
+            {% if campus_map %}
+                    <div class="map-position-selector">
+                        <div class="position-display">
+                            <span id="positionText">
+                                {% if mode == 'edit' and node.map_x %}
+                                    Position: {{ node.map_x|floatformat:1 }}%, {{ node.map_y|floatformat:1 }}%
+                                {% else %}
+                                    Click on the map below to set position
+                                {% endif %}
+                            </span>
+                            <button type="button" onclick="clearPosition()" class="btn-secondary" style="margin-left: 1rem;">Clear Position</button>
+                        </div>
+                        
+                        <div class="map-controls-bar">
+                            <button type="button" onclick="zoomIn()" class="btn-secondary">🔍 Zoom In</button>
+                            <button type="button" onclick="zoomOut()" class="btn-secondary">🔍 Zoom Out</button>
+                            <button type="button" onclick="resetZoom()" class="btn-secondary">↺ Reset Zoom</button>
+                            <label style="margin-left: 1rem;">
+                                Marker Size: 
+                                <input type="range" id="markerSize" min="5" max="30" value="10" 
+                                       onchange="updateMarkerSize(this.value)" style="vertical-align: middle;">
+                                <span id="markerSizeValue">10</span>px
+                            </label>
+                        </div>
+                        
+                        <div class="map-canvas-container" id="mapContainer">
+                            <canvas id="campusMapCanvas"></canvas>
+                            <div id="hoverInfo" class="hover-info"></div>
+                        </div>
+                        
+                        <small>Click on the campus blueprint to set this node's position on the map. Use zoom controls for precision.</small>
+                    </div>
+                {% else %}
+                    <p class="info-text">⚠️ No campus map uploaded yet. Upload a campus blueprint in the admin panel to enable map positioning.</p>
+                {% endif %}
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-section">
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">
+                    {% if mode == 'edit' %}💾 Update Node{% else %}✨ Create Node{% endif %}
+                </button>
+                <a href="{% url 'nodes_list' %}" class="btn-secondary">Cancel</a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<style>
+.map-position-selector {
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1rem;
+    background: #f8f9fa;
+}
+
+.position-display {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: white;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.position-display span {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-size: 0.95rem;
+}
+
+.position-display button {
+    white-space: nowrap;
+}
+
+.map-controls-bar {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: white;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.map-controls-bar button {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+.map-controls-bar label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.map-canvas-container {
+    position: relative;
+    overflow: auto;
+    max-height: 600px;
+    border: 2px solid #dee2e6;
+    border-radius: 4px;
+    background: white;
+    cursor: crosshair;
+    -webkit-overflow-scrolling: touch;
+}
+
+#campusMapCanvas {
+    display: block;
+}
+
+.hover-info {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9rem;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.node-marker-preview {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: #007bff;
+    border: 3px solid white;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+    .map-position-selector {
+        padding: 0.75rem;
+    }
+    
+    .position-display {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+    }
+    
+    .position-display button {
+        width: 100%;
+    }
+    
+    .map-controls-bar {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 0.5rem;
+    }
+    
+    .map-controls-bar button {
+        width: 100%;
+        padding: 0.5rem 0.25rem;
+        font-size: 0.85rem;
+    }
+    
+    .map-controls-bar label {
+        grid-column: 1 / -1;
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .map-controls-bar input[type="range"] {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .map-canvas-container {
+        max-height: 600px;
+    }
+    
+    .hover-info {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.6rem;
+        top: 5px;
+        right: 5px;
+    }
+}
+
+@media (max-width: 480px) {
+    .map-position-selector {
+        padding: 0.5rem;
+        border-radius: 4px;
+    }
+    
+    .position-display span {
+        font-size: 0.85rem;
+    }
+    
+    .map-controls-bar {
+        padding: 0.5rem;
+    }
+    
+    .map-controls-bar button {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.85rem;
+    }
+    
+    .map-controls-bar label {
+        font-size: 0.85rem;
+    }
+    
+    .map-canvas-container {
+        max-height: 500px;
+    }
+    
+    .hover-info {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.5rem;
+    }
+}
+
+@media (max-width: 768px) and (orientation: landscape) {
+    .map-canvas-container {
+        max-height: 400px;
+    }
+}
+</style>
+
+<script>
+{% if campus_map %}
+const canvas = document.getElementById('campusMapCanvas');
+const ctx = canvas.getContext('2d');
+const hoverInfo = document.getElementById('hoverInfo');
+const container = document.getElementById('mapContainer');
+let campusImage = new Image();
+let currentMarker = null;
+let zoomLevel = 1.0;
+let markerSize = 10;
+let panX = 0;
+let panY = 0;
+
+campusImage.onload = function() {
+    canvas.width = campusImage.width;
+    canvas.height = campusImage.height;
+    redrawCanvas();
+};
+
+campusImage.src = '{{ campus_map.blueprint_image.url }}';
+
+function redrawCanvas() {
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw blueprint
+    ctx.drawImage(campusImage, 0, 0);
+    
+    // Draw existing position marker if set
+    const mapX = parseFloat(document.getElementById('map_x').value);
+    const mapY = parseFloat(document.getElementById('map_y').value);
+    
+    if (!isNaN(mapX) && !isNaN(mapY)) {
+        const x = (mapX / 100) * canvas.width;
+        const y = (mapY / 100) * canvas.height;
+        drawMarker(x, y);
+    }
+}
+
+function drawMarker(x, y) {
+    // Draw marker
+    ctx.beginPath();
+    ctx.arc(x, y, markerSize, 0, 2 * Math.PI);
+    ctx.fillStyle = '#007bff';
+    ctx.fill();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    
+    // Draw label
+    ctx.fillStyle = 'black';
+    ctx.font = 'bold 12px Arial';
+    ctx.fillText('{{ node.node_code|default:"New Node" }}', x + markerSize + 4, y - 5);
+}
+
+// Canvas click handler - FIXED positioning
+canvas.addEventListener('click', function(e) {
+    const rect = canvas.getBoundingClientRect();
+    
+    // Calculate scale factors
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    // Get actual position on canvas considering zoom/scale
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    // Convert to percentage
+    const xPercent = (x / canvas.width) * 100;
+    const yPercent = (y / canvas.height) * 100;
+    
+    // Save to hidden inputs
+    document.getElementById('map_x').value = xPercent.toFixed(2);
+    document.getElementById('map_y').value = yPercent.toFixed(2);
+    
+    // Update display text
+    document.getElementById('positionText').textContent = 
+        `Position: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`;
+    
+    // Redraw canvas
+    redrawCanvas();
+});
+
+// Mouse move handler for coordinates - FIXED
+canvas.addEventListener('mousemove', function(e) {
+    const rect = canvas.getBoundingClientRect();
+    
+    // Calculate scale factors
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    const xPercent = ((x / canvas.width) * 100).toFixed(1);
+    const yPercent = ((y / canvas.height) * 100).toFixed(1);
+    
+    hoverInfo.textContent = `X: ${xPercent}% | Y: ${yPercent}%`;
+});
+
+function clearPosition() {
+    document.getElementById('map_x').value = '';
+    document.getElementById('map_y').value = '';
+    document.getElementById('positionText').textContent = 'Click on the map below to set position';
+    redrawCanvas();
+}
+
+function zoomIn() {
+    zoomLevel = Math.min(zoomLevel + 0.25, 3.0);
+    applyZoom();
+}
+
+function zoomOut() {
+    zoomLevel = Math.max(zoomLevel - 0.25, 0.1);
+    applyZoom();
+}
+
+function resetZoom() {
+    zoomLevel = 1.0;
+    applyZoom();
+}
+
+function applyZoom() {
+    // Apply zoom by setting actual display dimensions
+    const newWidth = campusImage.width * zoomLevel;
+    const newHeight = campusImage.height * zoomLevel;
+    
+    canvas.style.width = newWidth + 'px';
+    canvas.style.height = newHeight + 'px';
+    
+    // Keep canvas internal dimensions at original size
+    // This ensures percentage calculations remain correct
+}
+
+function updateMarkerSize(size) {
+    markerSize = parseInt(size);
+    document.getElementById('markerSizeValue').textContent = size;
+    redrawCanvas();
+}
+
+{% endif %}
+</script>
+{% endblock %}

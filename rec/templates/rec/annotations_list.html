@@ -1,0 +1,84 @@
+{% extends 'rec/base.html' %}
+
+{% block title %}Annotations - Campus Navigator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>360° Annotations Management</h1>
+    <a href="{% url 'annotation_create' %}" class="btn-primary">➕ Add New Annotation</a>
+</div>
+
+<div class="filters-bar">
+    <form method="get" class="filters-form">
+        <select name="panorama">
+            <option value="">All Panoramas</option>
+            {% for pano in panoramas %}
+                <option value="{{ pano.node_id }}" {% if pano.node_id|stringformat:"s" == panorama_filter %}selected{% endif %}>
+                    {{ pano.name }} ({{ pano.node_code }})
+                </option>
+            {% endfor %}
+        </select>
+        
+        <button type="submit" class="btn-secondary">Filter</button>
+        <a href="{% url 'annotations_list' %}" class="btn-link">Clear</a>
+    </form>
+</div>
+
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Label</th>
+                <th>Panorama</th>
+                <th>Target Node</th>
+                <th>Yaw</th>
+                <th>Pitch</th>
+                <th>Radius</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ann in annotations %}
+            <tr>
+                <td><strong>{{ ann.label }}</strong></td>
+                <td>
+                    {{ ann.panorama.name }}<br>
+                    <small>{{ ann.panorama.node_code }}</small>
+                </td>
+                <td>
+                    {% if ann.target_node %}
+                        {{ ann.target_node.name }}<br>
+                        <small>{{ ann.target_node.node_code }}</small>
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+                <td>{{ ann.yaw|floatformat:1 }}°</td>
+                <td>{{ ann.pitch|floatformat:1 }}°</td>
+                <td>{{ ann.visible_radius|floatformat:1 }}°</td>
+                <td>
+                    {% if ann.is_active %}
+                        <span class="badge badge-success">✅ Active</span>
+                    {% else %}
+                        <span class="badge badge-secondary">❌ Inactive</span>
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    <a href="{% url 'annotation_edit' ann.id %}" class="btn-icon" title="Edit">✏️</a>
+                    <a href="{% url 'annotation_delete' ann.id %}" class="btn-icon" title="Delete">🗑️</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center text-muted">No annotations found. <a href="{% url 'annotation_create' %}">Add your first annotation</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="info-box">
+    <strong>Total:</strong> {{ annotations|length }} annotation(s) displayed
+</div>
+{% endblock %}

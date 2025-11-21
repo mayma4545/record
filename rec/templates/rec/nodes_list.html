@@ -1,0 +1,93 @@
+{% extends 'rec/base.html' %}
+
+{% block title %}Nodes - Campus Navigator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Nodes Management</h1>
+    <a href="{% url 'node_create' %}" class="btn-primary">➕ Add New Node</a>
+</div>
+
+<div class="filters-bar">
+    <form method="get" class="filters-form">
+        <input type="text" name="search" placeholder="Search by code, name, or building..." value="{{ search }}">
+        
+        <select name="building">
+            <option value="">All Buildings</option>
+            {% for building in buildings %}
+                <option value="{{ building }}" {% if building == building_filter %}selected{% endif %}>{{ building }}</option>
+            {% endfor %}
+        </select>
+        
+        <select name="floor">
+            <option value="">All Floors</option>
+            {% for floor in floors %}
+                <option value="{{ floor }}" {% if floor|stringformat:"s" == floor_filter %}selected{% endif %}>Floor {{ floor }}</option>
+            {% endfor %}
+        </select>
+        
+        <button type="submit" class="btn-secondary">Filter</button>
+        <a href="{% url 'nodes_list' %}" class="btn-link">Clear</a>
+    </form>
+</div>
+
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Building</th>
+                <th>Floor</th>
+                <th>Type</th>
+                <th>360° Image</th>
+                <th>QR Code</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for node in nodes %}
+            <tr>
+                <td><code>{{ node.node_code }}</code></td>
+                <td>{{ node.name }}</td>
+                <td>{{ node.building }}</td>
+                <td>{{ node.floor_level }}</td>
+                <td><span class="badge">{{ node.type_of_node }}</span></td>
+                <td>
+                    {% if node.image360 %}
+                        <a href="{{ node.image360.url }}" target="_blank">
+                            <img src="{{ node.image360.url }}" alt="360° preview" 
+                                 style="max-width: 60px; max-height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;">
+                        </a>
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if node.qrcode %}
+                        <a href="{{ node.qrcode.url }}" target="_blank" download="qr_{{ node.node_code }}.png">
+                            <img src="{{ node.qrcode.url }}" alt="QR Code" 
+                                 style="max-width: 40px; max-height: 40px; border: 1px solid #ddd; padding: 2px; background: white;">
+                        </a>
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    <a href="{% url 'node_edit' node.node_id %}" class="btn-icon" title="Edit">✏️</a>
+                    <a href="{% url 'node_delete' node.node_id %}" class="btn-icon" title="Delete">🗑️</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center text-muted">No nodes found. <a href="{% url 'node_create' %}">Add your first node</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="info-box">
+    <strong>Total:</strong> {{ nodes|length }} node(s) displayed
+</div>
+{% endblock %}

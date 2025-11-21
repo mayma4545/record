@@ -1,0 +1,33 @@
+{% extends 'rec/base.html' %}
+
+{% block title %}Delete Edge{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Delete Edge</h1>
+</div>
+
+<div class="confirm-delete">
+    <div class="warning-box">
+        <h3>⚠️ Are you sure?</h3>
+        <p>You are about to delete the following edge:</p>
+        
+        <div class="item-details">
+            <p><strong>From:</strong> {{ edge.from_node.node_code }} - {{ edge.from_node.name }}</p>
+            <p><strong>To:</strong> {{ edge.to_node.node_code }} - {{ edge.to_node.name }}</p>
+            <p><strong>Distance:</strong> {{ edge.distance }} meters</p>
+            <p><strong>Compass Angle:</strong> {{ edge.compass_angle }}°</p>
+        </div>
+        
+        <p class="danger-text">This action cannot be undone.</p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-actions">
+            <button type="submit" class="btn-danger">Yes, Delete Edge</button>
+            <a href="{% url 'edges_list' %}" class="btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends 'rec/base.html' %}
+
+{% block title %}Edges - Campus Navigator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Edges Management</h1>
+    <a href="{% url 'edge_create' %}" class="btn-primary">➕ Add New Edge</a>
+</div>
+
+<div class="filters-bar">
+    <form method="get" class="filters-form">
+        <select name="status">
+            <option value="">All Status</option>
+            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active Only</option>
+            <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive Only</option>
+        </select>
+        
+        <select name="staircase">
+            <option value="">All Types</option>
+            <option value="yes" {% if stair_filter == 'yes' %}selected{% endif %}>Staircase Only</option>
+            <option value="no" {% if stair_filter == 'no' %}selected{% endif %}>Non-Staircase Only</option>
+        </select>
+        
+        <button type="submit" class="btn-secondary">Filter</button>
+        <a href="{% url 'edges_list' %}" class="btn-link">Clear</a>
+    </form>
+</div>
+
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>From Node</th>
+                <th>To Node</th>
+                <th>Distance (m)</th>
+                <th>Compass Angle</th>
+                <th>Staircase</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for edge in edges %}
+            <tr>
+                <td>{{ edge.edge_id }}</td>
+                <td>
+                    <strong>{{ edge.from_node.node_code }}</strong><br>
+                    <small>{{ edge.from_node.name }}</small>
+                </td>
+                <td>
+                    <strong>{{ edge.to_node.node_code }}</strong><br>
+                    <small>{{ edge.to_node.name }}</small>
+                </td>
+                <td>{{ edge.distance|floatformat:2 }}</td>
+                <td>{{ edge.compass_angle|floatformat:1 }}°</td>
+                <td>
+                    {% if edge.is_staircase %}
+                        <span class="badge badge-warning">🚶 Stairs</span>
+                    {% else %}
+                        <span class="badge badge-info">➡️ Flat</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if edge.is_active %}
+                        <span class="badge badge-success">✅ Active</span>
+                    {% else %}
+                        <span class="badge badge-secondary">❌ Inactive</span>
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    <a href="{% url 'edge_edit' edge.edge_id %}" class="btn-icon" title="Edit">✏️</a>
+                    <a href="{% url 'edge_delete' edge.edge_id %}" class="btn-icon" title="Delete">🗑️</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center text-muted">No edges found. <a href="{% url 'edge_create' %}">Add your first edge</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="info-box">
+    <strong>Total:</strong> {{ edges|length }} edge(s) displayed
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends 'rec/base.html' %}
+
+{% block title %}Delete Annotation{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Delete Annotation</h1>
+</div>
+
+<div class="confirm-delete">
+    <div class="warning-box">
+        <h3>⚠️ Are you sure?</h3>
+        <p>You are about to delete the following annotation:</p>
+        
+        <div class="item-details">
+            <p><strong>Label:</strong> {{ annotation.label }}</p>
+            <p><strong>Panorama:</strong> {{ annotation.panorama.name }} ({{ annotation.panorama.node_code }})</p>
+            <p><strong>Position:</strong> Yaw {{ annotation.yaw }}°, Pitch {{ annotation.pitch }}°</p>
+        </div>
+        
+        <p class="danger-text">This action cannot be undone.</p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-actions">
+            <button type="submit" class="btn-danger">Yes, Delete Annotation</button>
+            <a href="{% url 'annotations_list' %}" class="btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

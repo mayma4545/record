@@ -1,0 +1,326 @@
+{% extends 'rec/base.html' %}
+
+{% block title %}{% if mode == 'edit' %}Edit{% else %}Create{% endif %} Edge{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{% if mode == 'edit' %}Edit Edge #{{ edge.edge_id }}{% else %}Create New Edge{% endif %}</h1>
+</div>
+
+<div class="form-container">
+    <form method="post" class="data-form">
+        {% csrf_token %}
+        
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="from_node">From Node <span class="required">*</span></label>
+                <input type="hidden" id="from_node" name="from_node" required 
+                       value="{% if mode == 'edit' %}{{ edge.from_node.node_id }}{% endif %}">
+                <div class="node-selector" onclick="openNodeModal('from_node')">
+                    <div class="node-selector-display" id="from_node_display">
+                        {% if mode == 'edit' %}
+                            <strong>{{ edge.from_node.node_code }}</strong> - {{ edge.from_node.name }} ({{ edge.from_node.building }})
+                        {% else %}
+                            <span class="placeholder">Click to select starting node...</span>
+                        {% endif %}
+                    </div>
+                    <span class="node-selector-icon">🔍</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="to_node">To Node <span class="required">*</span></label>
+                <input type="hidden" id="to_node" name="to_node" required
+                       value="{% if mode == 'edit' %}{{ edge.to_node.node_id }}{% endif %}">
+                <div class="node-selector" onclick="openNodeModal('to_node')">
+                    <div class="node-selector-display" id="to_node_display">
+                        {% if mode == 'edit' %}
+                            <strong>{{ edge.to_node.node_code }}</strong> - {{ edge.to_node.name }} ({{ edge.to_node.building }})
+                        {% else %}
+                            <span class="placeholder">Click to select destination node...</span>
+                        {% endif %}
+                    </div>
+                    <span class="node-selector-icon">🔍</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="distance">Distance (meters) <span class="required">*</span></label>
+                <input type="number" id="distance" name="distance" step="0.01" min="0" required 
+                       value="{% if mode == 'edit' %}{{ edge.distance }}{% endif %}"
+                       placeholder="e.g., 15.5">
+                <small>Physical distance between nodes</small>
+            </div>
+
+            <div class="form-group">
+                <label for="compass_angle">Compass Angle (degrees) <span class="required">*</span></label>
+                <input type="number" id="compass_angle" name="compass_angle" step="0.1" min="0" max="360" required 
+                       value="{% if mode == 'edit' %}{{ edge.compass_angle }}{% endif %}"
+                       placeholder="e.g., 90">
+                <small>0° = North, 90° = East, 180° = South, 270° = West</small>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_staircase" 
+                           {% if mode == 'edit' and edge.is_staircase %}checked{% endif %}>
+                    This is a staircase
+                </label>
+                <small>Check if this edge involves stairs</small>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_active" 
+                           {% if mode == 'create' or mode == 'edit' and edge.is_active %}checked{% endif %}>
+                    Active
+                </label>
+                <small>Inactive edges won't be used in pathfinding</small>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <strong>Note:</strong> Edges are automatically bidirectional. The reverse edge will be created with compass angle + 180°.
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">{% if mode == 'edit' %}Update{% else %}Create{% endif %} Edge</button>
+            <a href="{% url 'edges_list' %}" class="btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<!-- Node Selection Modal -->
+<div id="nodeModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Select Node</h3>
+            <span class="modal-close" onclick="closeNodeModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <input type="text" id="nodeSearchInput" class="modal-search" 
+                   placeholder="Search by code, name, or building..." 
+                   onkeyup="searchNodes()">
+            <div id="nodeListContainer" class="node-list"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}\n<script>
+let currentField = null;
+let nodesData = [
+    {% for node in nodes %}
+    {
+        id: {{ node.node_id }},
+        code: "{{ node.node_code|escapejs }}",
+        name: "{{ node.name|escapejs }}",
+        building: "{{ node.building|escapejs }}",
+        floor: {{ node.floor_level }}
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
+
+function openNodeModal(fieldId) {
+    currentField = fieldId;
+    document.getElementById('nodeSearchInput').value = '';
+    renderNodeList(nodesData);
+    document.getElementById('nodeModal').style.display = 'flex';
+    setTimeout(() => document.getElementById('nodeSearchInput').focus(), 100);
+}
+
+function closeNodeModal() {
+    document.getElementById('nodeModal').style.display = 'none';
+}
+
+function searchNodes() {
+    const searchTerm = document.getElementById('nodeSearchInput').value.toLowerCase();
+    const filtered = nodesData.filter(node => 
+        node.code.toLowerCase().includes(searchTerm) ||
+        node.name.toLowerCase().includes(searchTerm) ||
+        node.building.toLowerCase().includes(searchTerm)
+    );
+    renderNodeList(filtered);
+}
+
+function renderNodeList(nodes) {
+    const container = document.getElementById('nodeListContainer');
+    if (nodes.length === 0) {
+        container.innerHTML = '<div class="no-results">No nodes found</div>';
+        return;
+    }
+    
+    container.innerHTML = nodes.map(node => `
+        <div class="node-item" onclick="selectNode(${node.id}, '${node.code.replace(/'/g, "\\'")}', '${node.name.replace(/'/g, "\\'")}', '${node.building.replace(/'/g, "\\'")}')">
+            <div class="node-item-code">${node.code}</div>
+            <div class="node-item-name">${node.name}</div>
+            <div class="node-item-meta">${node.building} - Floor ${node.floor}</div>
+        </div>
+    `).join('');
+}
+
+function selectNode(id, code, name, building) {
+    document.getElementById(currentField).value = id;
+    document.getElementById(currentField + '_display').innerHTML = 
+        `<strong>${code}</strong> - ${name} (${building})`;
+    closeNodeModal();
+}
+
+// Close modal on outside click
+window.onclick = function(event) {
+    const modal = document.getElementById('nodeModal');
+    if (event.target === modal) {
+        closeNodeModal();
+    }
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeNodeModal();
+    }
+});
+</script>
+
+<style>
+.node-selector {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    background: white;
+    transition: all 0.3s;
+}
+
+.node-selector:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.node-selector-display {
+    flex: 1;
+}
+
+.node-selector-display .placeholder {
+    color: #6c757d;
+}
+
+.node-selector-icon {
+    margin-left: 0.5rem;
+    font-size: 1.2rem;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background-color: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.modal-close {
+    font-size: 2rem;
+    cursor: pointer;
+    color: #6c757d;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: #000;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-search {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}
+
+.modal-search:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.node-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.node-item {
+    padding: 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.node-item:hover {
+    background-color: #f8f9fa;
+    border-color: var(--primary-color);
+    transform: translateX(4px);
+}
+
+.node-item-code {
+    font-weight: bold;
+    color: var(--primary-color);
+    font-size: 0.95rem;
+}
+
+.node-item-name {
+    font-size: 1rem;
+    margin: 0.25rem 0;
+}
+
+.node-item-meta {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.no-results {
+    text-align: center;
+    padding: 2rem;
+    color: #6c757d;
+}
+</style>
+{% endblock %}

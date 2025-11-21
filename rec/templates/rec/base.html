@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Campus Navigation System{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'rec/css/style.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-header">
+                <a href="{% url 'index' %}" class="logo">🗺️ Campus Navigator</a>
+                <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" aria-label="Toggle menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="{% url 'index' %}">Dashboard</a></li>
+                <li><a href="{% url 'nodes_list' %}">Nodes</a></li>
+                <li><a href="{% url 'edges_list' %}">Edges</a></li>
+                <li><a href="{% url 'annotations_list' %}">Annotations</a></li>
+                <li><a href="{% url 'map_viewer' %}">Map Viewer</a></li>
+                <li><a href="{% url 'pathfinding_test' %}" class="btn-primary">Test Pathfinding</a></li>
+                <li><a href="/admin/">Admin</a></li>
+            </ul>
+        </div>
+    </nav>
+    
+    <script>
+        function toggleMobileMenu() {
+            const menu = document.getElementById('navMenu');
+            menu.classList.toggle('active');
+        }
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const navbar = document.querySelector('.navbar');
+            const toggle = document.querySelector('.mobile-menu-toggle');
+            const menu = document.getElementById('navMenu');
+            
+            if (!navbar.contains(event.target) && menu.classList.contains('active')) {
+                menu.classList.remove('active');
+            }
+        });
+        
+        // Close menu when clicking a link
+        document.querySelectorAll('.nav-menu a').forEach(link => {
+            link.addEventListener('click', () => {
+                document.getElementById('navMenu').classList.remove('active');
+            });
+        });
+    </script>
+
+    <main class="container">
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">
+                        {{ message }}
+                        <button class="close-btn" onclick="this.parentElement.remove()">×</button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Campus Navigation System | A* Pathfinding with Compass Directions</p>
+        </div>
+    </footer>
+
+    <script src="{% static 'rec/js/main.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

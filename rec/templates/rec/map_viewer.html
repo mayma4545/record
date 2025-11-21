@@ -1,0 +1,512 @@
+{% extends 'rec/base.html' %}
+
+{% block title %}Campus Map Viewer - Campus Navigator{% endblock %}
+
+{% block extra_css %}
+<style>
+    .map-viewer-container {
+        margin-top: 20px;
+    }
+    
+    .map-controls {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .map-canvas-section {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .canvas-wrapper {
+        position: relative;
+        max-height: 700px;
+        overflow: auto;
+        border: 2px solid #dee2e6;
+        border-radius: 4px;
+        background: #f8f9fa;
+    }
+    
+    #mapCanvas {
+        display: block;
+        cursor: pointer;
+    }
+    
+    .node-info-panel {
+        position: fixed;
+        right: -400px;
+        top: 0;
+        width: 380px;
+        height: 100vh;
+        background: white;
+        box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        transition: right 0.3s ease;
+        z-index: 1000;
+        overflow-y: auto;
+    }
+    
+    .node-info-panel.active {
+        right: 0;
+    }
+    
+    .node-info-header {
+        background: var(--primary-color);
+        color: white;
+        padding: 20px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .node-info-close {
+        float: right;
+        cursor: pointer;
+        font-size: 24px;
+        line-height: 1;
+        color: white;
+        background: none;
+        border: none;
+    }
+    
+    .node-info-content {
+        padding: 20px;
+    }
+    
+    .info-group {
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .info-group:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #6c757d;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+    }
+    
+    .info-value {
+        font-size: 1.1rem;
+        color: #212529;
+    }
+    
+    .qr-preview {
+        max-width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
+    
+    .image-360-preview {
+        max-width: 100%;
+        border-radius: 4px;
+    }
+    
+    .node-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    
+    .legend {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 4px;
+        margin-top: 20px;
+    }
+    
+    .legend-title {
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+    
+    .legend-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 0 3px rgba(0,0,0,0.3);
+    }
+    
+    .stats-bar {
+        background: #e7f3ff;
+        padding: 15px;
+        border-radius: 4px;
+        display: flex;
+        gap: 30px;
+        flex-wrap: wrap;
+    }
+    
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .stat-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>🗺️ Campus Map Viewer</h1>
+    <p>Interactive campus map showing all positioned nodes</p>
+</div>
+
+{% if campus_map %}
+<div class="map-viewer-container">
+    <div class="stats-bar">
+        <div class="stat-item">
+            <span class="stat-label">Total Nodes</span>
+            <span class="stat-value" id="totalNodes">{{ total_nodes }}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Positioned Nodes</span>
+            <span class="stat-value" id="positionedNodes">{{ positioned_nodes }}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Buildings</span>
+            <span class="stat-value">{{ buildings|length }}</span>
+        </div>
+    </div>
+    
+    <div class="map-controls">
+        <button onclick="zoomIn()" class="btn-secondary">🔍 Zoom In</button>
+        <button onclick="zoomOut()" class="btn-secondary">🔍 Zoom Out</button>
+        <button onclick="resetZoom()" class="btn-secondary">↺ Reset Zoom</button>
+        
+        <label style="margin-left: auto;">
+            Filter by Building:
+            <select id="buildingFilter" onchange="filterNodes()" style="margin-left: 10px; padding: 5px;">
+                <option value="">All Buildings</option>
+                {% for building in buildings %}
+                <option value="{{ building }}">{{ building }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        
+        <label>
+            Floor:
+            <select id="floorFilter" onchange="filterNodes()" style="margin-left: 10px; padding: 5px;">
+                <option value="">All Floors</option>
+                {% for floor in floors %}
+                <option value="{{ floor }}">Floor {{ floor }}</option>
+                {% endfor %}
+            </select>
+        </label>
+    </div>
+    
+    <div class="map-canvas-section">
+        <div class="canvas-wrapper" id="canvasWrapper">
+            <canvas id="mapCanvas"></canvas>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-title">Legend</div>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <span class="legend-dot" style="background: #007bff;"></span>
+                    <span>Regular Node</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot" style="background: #28a745;"></span>
+                    <span>Entrance</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot" style="background: #ffc107;"></span>
+                    <span>Restroom</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot" style="background: #dc3545;"></span>
+                    <span>Emergency Exit</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot" style="background: #6f42c1;"></span>
+                    <span>Elevator</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot" style="background: #17a2b8;"></span>
+                    <span>Staircase</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Node Info Panel -->
+<div class="node-info-panel" id="nodeInfoPanel">
+    <div class="node-info-header">
+        <button class="node-info-close" onclick="closeNodeInfo()">&times;</button>
+        <h3 id="nodeInfoTitle">Node Information</h3>
+    </div>
+    <div class="node-info-content" id="nodeInfoContent">
+        <p class="text-muted">Click on a node to view details</p>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('mapCanvas');
+const ctx = canvas.getContext('2d');
+const wrapper = document.getElementById('canvasWrapper');
+let campusImage = new Image();
+let allNodes = [];
+let filteredNodes = [];
+let zoomLevel = 1.0;
+let selectedNodeId = null;
+
+// Load campus map
+campusImage.onload = function() {
+    canvas.width = campusImage.width;
+    canvas.height = campusImage.height;
+    loadNodesAndDraw();
+};
+campusImage.src = '{{ campus_map.blueprint_image.url }}';
+
+// Load all nodes with positions
+function loadNodesAndDraw() {
+    fetch('/api/graph-data/')
+        .then(r => r.json())
+        .then(data => {
+            allNodes = data.nodes.filter(n => n.map_x !== null && n.map_y !== null);
+            filteredNodes = [...allNodes];
+            drawMap();
+        });
+}
+
+function drawMap() {
+    // Clear and draw blueprint
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(campusImage, 0, 0);
+    
+    // Draw all filtered nodes
+    filteredNodes.forEach(node => {
+        const x = (node.map_x / 100) * canvas.width;
+        const y = (node.map_y / 100) * canvas.height;
+        
+        const isSelected = node.id === selectedNodeId;
+        const color = getNodeColor(node.type);
+        
+        // Draw node marker
+        ctx.beginPath();
+        ctx.arc(x, y, isSelected ? 12 : 8, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = isSelected ? '#000' : 'white';
+        ctx.lineWidth = isSelected ? 4 : 2;
+        ctx.stroke();
+        
+        // Draw label for selected node
+        if (isSelected) {
+            ctx.font = 'bold 14px Arial';
+            ctx.fillStyle = '#000';
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 3;
+            ctx.strokeText(node.code, x + 15, y - 10);
+            ctx.fillText(node.code, x + 15, y - 10);
+        }
+    });
+}
+
+function getNodeColor(type) {
+    const colors = {
+        'entrance': '#28a745',
+        'restroom': '#ffc107',
+        'emergency_exit': '#dc3545',
+        'elevator': '#6f42c1',
+        'staircase': '#17a2b8',
+        'regular': '#007bff'
+    };
+    return colors[type] || '#007bff';
+}
+
+// Canvas click handler
+canvas.addEventListener('click', function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const clickX = (e.clientX - rect.left) * scaleX;
+    const clickY = (e.clientY - rect.top) * scaleY;
+    
+    // Find clicked node (within 15px radius)
+    let clickedNode = null;
+    let minDist = 15;
+    
+    filteredNodes.forEach(node => {
+        const x = (node.map_x / 100) * canvas.width;
+        const y = (node.map_y / 100) * canvas.height;
+        const dist = Math.sqrt(Math.pow(clickX - x, 2) + Math.pow(clickY - y, 2));
+        
+        if (dist < minDist) {
+            minDist = dist;
+            clickedNode = node;
+        }
+    });
+    
+    if (clickedNode) {
+        showNodeInfo(clickedNode);
+    }
+});
+
+function showNodeInfo(node) {
+    selectedNodeId = node.id;
+    drawMap();
+    
+    // Fetch full node details
+    fetch(`/api/node-details/${node.id}/`)
+        .then(r => r.json())
+        .then(data => {
+            const panel = document.getElementById('nodeInfoPanel');
+            const content = document.getElementById('nodeInfoContent');
+            
+            let html = `
+                <div class="info-group">
+                    <div class="info-label">Node Code</div>
+                    <div class="info-value">${data.node_code}</div>
+                </div>
+                
+                <div class="info-group">
+                    <div class="info-label">Name</div>
+                    <div class="info-value">${data.name}</div>
+                </div>
+                
+                <div class="info-group">
+                    <div class="info-label">Location</div>
+                    <div class="info-value">
+                        ${data.building}<br>
+                        <small>Floor ${data.floor_level}</small>
+                    </div>
+                </div>
+                
+                <div class="info-group">
+                    <div class="info-label">Type</div>
+                    <div class="info-value">${data.type_of_node.replace('_', ' ').toUpperCase()}</div>
+                </div>
+                
+                <div class="info-group">
+                    <div class="info-label">Map Position</div>
+                    <div class="info-value">
+                        X: ${data.map_x}%<br>
+                        Y: ${data.map_y}%
+                    </div>
+                </div>
+            `;
+            
+            if (data.qrcode) {
+                html += `
+                    <div class="info-group">
+                        <div class="info-label">QR Code</div>
+                        <img src="${data.qrcode}" alt="QR Code" class="qr-preview">
+                    </div>
+                `;
+            }
+            
+            if (data.image360) {
+                html += `
+                    <div class="info-group">
+                        <div class="info-label">360° Image</div>
+                        <img src="${data.image360}" alt="360° View" class="image-360-preview">
+                    </div>
+                `;
+            }
+            
+            html += `
+                <div class="node-actions">
+                    <a href="/nodes/${data.node_id}/edit/" class="btn-primary">✏️ Edit Node</a>
+                    <a href="/nodes/${data.node_id}/delete/" class="btn-danger">🗑️ Delete</a>
+                </div>
+            `;
+            
+            content.innerHTML = html;
+            document.getElementById('nodeInfoTitle').textContent = data.node_code;
+            panel.classList.add('active');
+        });
+}
+
+function closeNodeInfo() {
+    selectedNodeId = null;
+    drawMap();
+    document.getElementById('nodeInfoPanel').classList.remove('active');
+}
+
+function filterNodes() {
+    const buildingFilter = document.getElementById('buildingFilter').value;
+    const floorFilter = document.getElementById('floorFilter').value;
+    
+    filteredNodes = allNodes.filter(node => {
+        const buildingMatch = !buildingFilter || node.building === buildingFilter;
+        const floorMatch = !floorFilter || node.floor == parseInt(floorFilter);
+        return buildingMatch && floorMatch;
+    });
+    
+    drawMap();
+}
+
+function zoomIn() {
+    zoomLevel = Math.min(zoomLevel + 0.25, 3.0);
+    applyZoom();
+}
+
+function zoomOut() {
+    zoomLevel = Math.max(zoomLevel - 0.25, 0.5);
+    applyZoom();
+}
+
+function resetZoom() {
+    zoomLevel = 1.0;
+    applyZoom();
+}
+
+function applyZoom() {
+    canvas.style.width = (campusImage.width * zoomLevel) + 'px';
+    canvas.style.height = (campusImage.height * zoomLevel) + 'px';
+}
+
+// Close panel on escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeNodeInfo();
+    }
+});
+</script>
+
+{% else %}
+<div class="alert alert-warning">
+    <h4>⚠️ No Campus Map Available</h4>
+    <p>Please upload a campus blueprint map in the admin panel to use the map viewer.</p>
+    <a href="/admin/rec/campusmap/" class="btn-primary">Go to Admin Panel</a>
+</div>
+{% endif %}
+{% endblock %}

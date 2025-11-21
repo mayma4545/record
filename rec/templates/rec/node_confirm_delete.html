@@ -1,0 +1,33 @@
+{% extends 'rec/base.html' %}
+
+{% block title %}Delete Node{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Delete Node</h1>
+</div>
+
+<div class="confirm-delete">
+    <div class="warning-box">
+        <h3>⚠️ Are you sure?</h3>
+        <p>You are about to delete the following node:</p>
+        
+        <div class="item-details">
+            <p><strong>Code:</strong> {{ node.node_code }}</p>
+            <p><strong>Name:</strong> {{ node.name }}</p>
+            <p><strong>Building:</strong> {{ node.building }}</p>
+            <p><strong>Floor:</strong> {{ node.floor_level }}</p>
+        </div>
+        
+        <p class="danger-text">This action cannot be undone. All edges and annotations connected to this node will also be deleted.</p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-actions">
+            <button type="submit" class="btn-danger">Yes, Delete Node</button>
+            <a href="{% url 'nodes_list' %}" class="btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

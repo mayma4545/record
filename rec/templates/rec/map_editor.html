@@ -1,0 +1,580 @@
+{% extends 'rec/base.html' %}
+
+{% block title %}Campus Map Editor{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>🗺️ Campus Map Editor</h1>
+    <p>Click on the blueprint to position nodes</p>
+</div>
+
+<div class="map-editor-container">
+    <!-- Controls -->
+    <div class="map-controls">
+        <div class="control-group">
+            <label for="buildingSelect">Building:</label>
+            <select id="buildingSelect" onchange="loadMap()">
+                <option value="">Select Building...</option>
+                {% for building in buildings %}
+                    <option value="{{ building }}">{{ building }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label for="floorSelect">Floor:</label>
+            <select id="floorSelect" onchange="loadMap()">
+                <option value="">Select Floor...</option>
+                {% for floor in floors %}
+                    <option value="{{ floor }}">Floor {{ floor }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <button onclick="toggleNodeList()" class="btn-secondary">📋 Show/Hide Nodes</button>
+            <button onclick="saveAllPositions()" class="btn-primary">💾 Save All Positions</button>
+        </div>
+    </div>
+    
+    <!-- Main editor area -->
+    <div class="editor-layout">
+        <!-- Node list sidebar -->
+        <div id="nodeListSidebar" class="node-sidebar">
+            <h3>Nodes on this floor</h3>
+            <div id="nodeList" class="node-list-items">
+                <p class="text-muted">Select a building and floor to see nodes</p>
+            </div>
+        </div>
+        
+        <!-- Canvas area -->
+        <div class="canvas-container">
+            <div id="mapStatus" class="map-status">
+                <p>Select a building and floor to start positioning nodes</p>
+            </div>
+            
+            <div id="canvasWrapper" class="canvas-wrapper" style="display: none;">
+                <canvas id="mapCanvas"></canvas>
+                <div id="coordinateInfo" class="coordinate-info"></div>
+            </div>
+            
+            <div id="uploadPrompt" class="upload-prompt" style="display: none;">
+                <h3>No map found for this floor</h3>
+                <p>Upload a blueprint image to start positioning nodes</p>
+                <button onclick="openUploadModal()" class="btn-primary">📤 Upload Blueprint</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div id="uploadModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Upload Campus Map</h3>
+            <span class="modal-close" onclick="closeUploadModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="uploadForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" id="upload_building" name="building">
+                <input type="hidden" id="upload_floor" name="floor_level">
+                
+                <div class="form-group">
+                    <label for="map_name">Map Name:</label>
+                    <input type="text" id="map_name" name="name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="blueprint_image">Blueprint Image:</label>
+                    <input type="file" id="blueprint_image" name="blueprint_image" accept="image/*" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="scale_meters">Scale (optional):</label>
+                    <input type="number" step="0.001" id="scale_meters" name="scale_meters_per_pixel" 
+                           placeholder="Meters per pixel">
+                    <small>Used for accurate distance calculations</small>
+                </div>
+                
+                <button type="submit" class="btn-primary">Upload</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.map-editor-container {
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.map-controls {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: end;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.control-group label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.control-group select {
+    padding: 0.5rem;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    min-width: 200px;
+}
+
+.editor-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 1.5rem;
+    min-height: 600px;
+}
+
+.node-sidebar {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    overflow-y: auto;
+    max-height: 80vh;
+}
+
+.node-sidebar h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+.node-list-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.node-item-map {
+    padding: 0.75rem;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: white;
+}
+
+.node-item-map:hover {
+    border-color: var(--primary-color);
+    transform: translateX(4px);
+}
+
+.node-item-map.positioned {
+    border-color: #28a745;
+    background: #f0fff4;
+}
+
+.node-item-map.selected {
+    border-color: var(--primary-color);
+    background: #e7f3ff;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+}
+
+.node-code-map {
+    font-weight: bold;
+    color: var(--primary-color);
+    font-size: 0.9rem;
+}
+
+.node-name-map {
+    font-size: 0.95rem;
+    margin: 0.25rem 0;
+}
+
+.node-coords {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.canvas-container {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    position: relative;
+}
+
+.map-status {
+    text-align: center;
+    padding: 3rem;
+    color: #6c757d;
+}
+
+.canvas-wrapper {
+    position: relative;
+    overflow: auto;
+    max-height: 80vh;
+}
+
+#mapCanvas {
+    border: 2px solid #dee2e6;
+    cursor: crosshair;
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.coordinate-info {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-family: monospace;
+}
+
+.upload-prompt {
+    text-align: center;
+    padding: 3rem;
+}
+
+.upload-prompt h3 {
+    margin-bottom: 1rem;
+}
+
+/* Node markers on canvas */
+.node-marker {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: #007bff;
+    border: 3px solid white;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.node-marker:hover {
+    background: #0056b3;
+    transform: translate(-50%, -50%) scale(1.2);
+}
+
+.node-marker.selected {
+    background: #ffc107;
+    border-color: #ff9800;
+}
+
+/* Save notification */
+.save-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #28a745;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+</style>
+
+<script>
+let currentBuilding = null;
+let currentFloor = null;
+let currentMap = null;
+let selectedNodeId = null;
+let nodesData = [];
+let canvas = null;
+let ctx = null;
+let canvasImage = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    canvas = document.getElementById('mapCanvas');
+    ctx = canvas.getContext('2d');
+    
+    // Canvas click handler
+    canvas.addEventListener('click', handleCanvasClick);
+    canvas.addEventListener('mousemove', handleCanvasMouseMove);
+});
+
+function loadMap() {
+    currentBuilding = document.getElementById('buildingSelect').value;
+    currentFloor = document.getElementById('floorSelect').value;
+    
+    if (!currentBuilding || !currentFloor) {
+        document.getElementById('mapStatus').style.display = 'block';
+        document.getElementById('canvasWrapper').style.display = 'none';
+        document.getElementById('uploadPrompt').style.display = 'none';
+        return;
+    }
+    
+    // Fetch map and nodes
+    fetch(`/rec/api/campus-map/${currentBuilding}/${currentFloor}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.map) {
+                currentMap = data.map;
+                loadBlueprint(data.map.blueprint_url);
+                document.getElementById('mapStatus').style.display = 'none';
+                document.getElementById('uploadPrompt').style.display = 'none';
+                document.getElementById('canvasWrapper').style.display = 'block';
+            } else {
+                // No map found - show upload prompt
+                document.getElementById('mapStatus').style.display = 'none';
+                document.getElementById('canvasWrapper').style.display = 'none';
+                document.getElementById('uploadPrompt').style.display = 'block';
+            }
+            
+            // Load nodes for this floor
+            loadNodes(data.nodes);
+        })
+        .catch(error => {
+            console.error('Error loading map:', error);
+            alert('Error loading map data');
+        });
+}
+
+function loadBlueprint(imageUrl) {
+    const img = new Image();
+    img.onload = function() {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        canvasImage = img;
+        redrawCanvas();
+    };
+    img.src = imageUrl;
+}
+
+function loadNodes(nodes) {
+    nodesData = nodes;
+    const nodeList = document.getElementById('nodeList');
+    
+    if (nodes.length === 0) {
+        nodeList.innerHTML = '<p class="text-muted">No nodes on this floor</p>';
+        return;
+    }
+    
+    nodeList.innerHTML = nodes.map(node => `
+        <div class="node-item-map ${node.map_x !== null ? 'positioned' : ''}" 
+             onclick="selectNode(${node.node_id})" 
+             id="node-item-${node.node_id}">
+            <div class="node-code-map">${node.node_code}</div>
+            <div class="node-name-map">${node.name}</div>
+            <div class="node-coords">
+                ${node.map_x !== null ? `📍 (${node.map_x.toFixed(1)}%, ${node.map_y.toFixed(1)}%)` : '📍 Not positioned'}
+            </div>
+        </div>
+    `).join('');
+    
+    redrawCanvas();
+}
+
+function selectNode(nodeId) {
+    selectedNodeId = nodeId;
+    
+    // Update UI
+    document.querySelectorAll('.node-item-map').forEach(el => {
+        el.classList.remove('selected');
+    });
+    document.getElementById(`node-item-${nodeId}`).classList.add('selected');
+    
+    redrawCanvas();
+}
+
+function handleCanvasClick(e) {
+    if (!selectedNodeId) {
+        alert('Please select a node from the list first');
+        return;
+    }
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Convert to percentage
+    const xPercent = (x / canvas.width) * 100;
+    const yPercent = (y / canvas.height) * 100;
+    
+    // Update node position
+    const node = nodesData.find(n => n.node_id === selectedNodeId);
+    if (node) {
+        node.map_x = xPercent;
+        node.map_y = yPercent;
+        
+        // Update UI
+        const nodeItem = document.getElementById(`node-item-${selectedNodeId}`);
+        nodeItem.classList.add('positioned');
+        nodeItem.querySelector('.node-coords').textContent = 
+            `📍 (${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%)`;
+        
+        redrawCanvas();
+    }
+}
+
+function handleCanvasMouseMove(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const xPercent = ((x / canvas.width) * 100).toFixed(1);
+    const yPercent = ((y / canvas.height) * 100).toFixed(1);
+    
+    document.getElementById('coordinateInfo').textContent = 
+        `X: ${xPercent}% | Y: ${yPercent}%`;
+}
+
+function redrawCanvas() {
+    if (!canvasImage) return;
+    
+    // Clear and draw blueprint
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(canvasImage, 0, 0);
+    
+    // Draw positioned nodes
+    nodesData.forEach(node => {
+        if (node.map_x !== null && node.map_y !== null) {
+            const x = (node.map_x / 100) * canvas.width;
+            const y = (node.map_y / 100) * canvas.height;
+            
+            // Draw dot
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, 2 * Math.PI);
+            ctx.fillStyle = node.node_id === selectedNodeId ? '#ffc107' : '#007bff';
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Draw label
+            ctx.fillStyle = 'black';
+            ctx.font = 'bold 12px Arial';
+            ctx.fillText(node.node_code, x + 12, y - 5);
+        }
+    });
+}
+
+function saveAllPositions() {
+    const positionedNodes = nodesData.filter(n => n.map_x !== null && n.map_y !== null);
+    
+    if (positionedNodes.length === 0) {
+        alert('No nodes have been positioned yet');
+        return;
+    }
+    
+    fetch('/rec/api/save-node-positions/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            nodes: positionedNodes.map(n => ({
+                node_id: n.node_id,
+                map_x: n.map_x,
+                map_y: n.map_y
+            }))
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`✅ Saved ${data.updated} node positions!`);
+        } else {
+            alert('Error saving positions: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving positions');
+    });
+}
+
+function toggleNodeList() {
+    const sidebar = document.getElementById('nodeListSidebar');
+    sidebar.style.display = sidebar.style.display === 'none' ? 'block' : 'none';
+}
+
+function openUploadModal() {
+    document.getElementById('upload_building').value = currentBuilding;
+    document.getElementById('upload_floor').value = currentFloor;
+    document.getElementById('map_name').value = `${currentBuilding} - Floor ${currentFloor}`;
+    document.getElementById('uploadModal').style.display = 'flex';
+}
+
+function closeUploadModal() {
+    document.getElementById('uploadModal').style.display = 'none';
+}
+
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch('/rec/api/upload-campus-map/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('✅ Blueprint uploaded successfully!');
+            closeUploadModal();
+            loadMap();
+        } else {
+            alert('Error uploading: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error uploading blueprint');
+    });
+});
+
+function showNotification(message) {
+    const notif = document.createElement('div');
+    notif.className = 'save-notification';
+    notif.textContent = message;
+    document.body.appendChild(notif);
+    
+    setTimeout(() => {
+        notif.remove();
+    }, 3000);
+}
+
+// Close modal on outside click
+window.addEventListener('click', function(e) {
+    const modal = document.getElementById('uploadModal');
+    if (e.target === modal) {
+        closeUploadModal();
+    }
+});
+</script>
+{% endblock %}

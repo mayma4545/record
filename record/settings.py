@@ -51,6 +51,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+TRUSTED_ORIGINS = ['https://schizocarpic-tanya-precorrectly.ngrok-free.dev']
 ROOT_URLCONF = 'record.urls'
 
 TEMPLATES = [
@@ -68,6 +69,8 @@ TEMPLATES = [
         },
     },
 ]
+# CSRF Trusted Origins
+CSRF_TRUSTED_ORIGINS = ['https://schizocarpic-tanya-precorrectly.ngrok-free.dev']
 
 WSGI_APPLICATION = 'record.wsgi.application'
 
